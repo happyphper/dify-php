@@ -1,0 +1,7 @@
+/vendor/
+/composer.lock
+/.idea/
+/.vscode/
+/examples/config.php
+.DS_Store
+*.log
