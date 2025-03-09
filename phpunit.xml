@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php"
+         colors="true"
+         verbose="true"
+         stopOnFailure="false">
+    <testsuites>
+        <testsuite name="Dify PHP SDK Test Suite">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <filter>
+        <whitelist>
+            <directory suffix=".php">src/</directory>
+        </whitelist>
+    </filter>
+    <php>
+        <!-- API 配置 -->
+        <env name="DIFY_API_KEY" value="dataset-ufldW3iEBZma9WfB0NF3C2HR"/>
+        <env name="DIFY_API_BASE_URL" value="http://host.docker.internal:5001/v1"/>
+    </php>
+</phpunit> 

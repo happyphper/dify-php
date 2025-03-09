@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Happyphper\Dify\Api;
 
-use Happyphper\Dify\Exception\DifyException;
+use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\Exceptions\NotFoundException;
 use Happyphper\Dify\HttpClient;
-use Happyphper\Dify\Model\Dataset;
-use Happyphper\Dify\Model\DatasetCollection;
+use Happyphper\Dify\Requests\DatasetCreateRequest;
+use Happyphper\Dify\Responses\Dataset;
+use Happyphper\Dify\Responses\DatasetListResponse;
+use Throwable;
 
 /**
  * 知识库 API 类
@@ -19,101 +22,64 @@ class DatasetApi
      *
      * @var HttpClient
      */
-    private $httpClient;
+    private HttpClient $client;
 
     /**
-     * 初始化知识库 API
+     * 构造函数
      *
-     * @param HttpClient $httpClient
+     * @param HttpClient $client
      */
-    public function __construct(HttpClient $httpClient)
+    public function __construct(HttpClient $client)
     {
-        $this->httpClient = $httpClient;
-    }
-
-    /**
-     * 创建数据集
-     *
-     * @param string $name 数据集名称
-     * @param string $description 数据集描述
-     * @param string $permission 数据集权限，可选值：only_me, all_team_members
-     * @param string $indexingTechnique 索引技术，可选值：high_quality, economy
-     * @return Dataset
-     */
-    public function create(string $name, string $description = '', string $permission = 'only_me', string $indexingTechnique = 'high_quality'): Dataset
-    {
-        $data = [
-            'name' => $name,
-            'description' => $description,
-            'permission' => $permission,
-            'indexing_technique' => $indexingTechnique,
-        ];
-
-        $response = $this->httpClient->post('datasets', $data);
-        return new Dataset($response);
+        $this->client = $client;
     }
 
     /**
      * 获取数据集列表
      *
-     * @param int $page 页码
-     * @param int $limit 每页数量
-     * @return array 包含数据集集合和分页信息
+     * @param int $page
+     * @param int $limit
+     * @return DatasetListResponse
+     * @throws ApiException
      */
-    public function list(int $page = 1, int $limit = 20): array
+    public function list(int $page = 1, int $limit = 20): DatasetListResponse
     {
-        $query = [
-            'page' => $page,
-            'limit' => $limit,
-        ];
+        $response = $this->client->get('/datasets', compact('page', 'limit'));
 
-        $response = $this->httpClient->get('datasets', $query);
-        
-        $datasets = new DatasetCollection($response['data'] ?? []);
-        
-        return [
-            'data' => $datasets,
-            'has_more' => $response['has_more'] ?? false,
-            'limit' => $response['limit'] ?? $limit,
-            'total' => $response['total'] ?? count($datasets),
-            'page' => $response['page'] ?? $page,
-        ];
+        return new DatasetListResponse($response);
     }
 
     /**
-     * 获取数据集详情
+     * 创建数据集
      *
-     * @param string $datasetId 数据集ID
+     * @param DatasetCreateRequest $params
      * @return Dataset
+     * @throws ApiException
      */
-    public function get(string $datasetId): Dataset
+    public function create(DatasetCreateRequest $params): Dataset
     {
-        $response = $this->httpClient->get("datasets/{$datasetId}");
-        return new Dataset($response);
-    }
+        $response = $this->client->post('/datasets', $params->toArray());
 
-    /**
-     * 更新数据集
-     *
-     * @param string $datasetId 数据集ID
-     * @param array $data 更新数据
-     * @return Dataset
-     */
-    public function update(string $datasetId, array $data): Dataset
-    {
-        $response = $this->httpClient->put("datasets/{$datasetId}", $data);
         return new Dataset($response);
     }
 
     /**
      * 删除数据集
      *
-     * @param string $datasetId 数据集ID
-     * @return array
+     * @param string $id
+     * @return void
+     * @throws ApiException
      */
-    public function delete(string $datasetId): array
+    public function delete(string $id): void
     {
-        return $this->httpClient->delete("datasets/{$datasetId}");
+        try {
+            $this->client->delete("/datasets/$id");
+        } catch (Throwable $exception) {
+            if (strpos($exception->getMessage(), '404 NOT FOUND') > -1) {
+                throw new NotFoundException();
+            }
+            throw new ApiException($exception->getMessage(), $exception->getCode());
+        }
     }
 
     /**
@@ -121,15 +87,18 @@ class DatasetApi
      *
      * @param string $datasetId 数据集ID
      * @param string $query 查询内容
-     * @param array $options 检索选项
+     * @param array|null $retrievalModel
+     * @param string|null $externalRetrievalModel
      * @return array
+     * @throws ApiException
      */
-    public function retrieve(string $datasetId, string $query, array $options = []): array
+    public function retrieve(string $datasetId, string $query, ?array $retrievalModel, ?string $externalRetrievalModel): array
     {
-        $data = array_merge([
+        $data = [
             'query' => $query,
-        ], $options);
-
-        return $this->httpClient->post("datasets/{$datasetId}/retrieve", $data);
+            'retrieval_model' => $retrievalModel,
+            'external_retrieval_model' => $externalRetrievalModel,
+        ];
+        return $this->client->post("/datasets/$datasetId/retrieve", array_filter($data));
     }
-} 
+}

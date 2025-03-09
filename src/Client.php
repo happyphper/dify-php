@@ -19,35 +19,35 @@ class Client
      *
      * @var HttpClient
      */
-    private $httpClient;
+    private HttpClient $httpClient;
 
     /**
      * 配置
      *
      * @var Config
      */
-    private $config;
+    private Config $config;
 
     /**
      * 数据集 API
      *
      * @var DatasetApi
      */
-    private $datasets;
+    private DatasetApi $datasets;
 
     /**
      * 文档 API
      *
      * @var DocumentApi
      */
-    private $documents;
+    private DocumentApi $documents;
 
     /**
      * 分段 API
      *
      * @var SegmentApi
      */
-    private $segments;
+    private SegmentApi $segments;
 
     /**
      * 构造函数
@@ -181,4 +181,4 @@ class Client
         $this->config->setLogger($logger);
         return $this;
     }
-} 
+}

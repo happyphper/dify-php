@@ -13,6 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dataset operations (create, list, delete, retrieve)
 - Document operations (create by text, create by file, list, update, delete)
 - Segment operations (create, list, update, delete)
-- Error handling with DifyException
+- Error handling with ApiException
 - Comprehensive documentation in English and Chinese
 - Examples for basic usage 

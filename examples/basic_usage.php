@@ -2,11 +2,12 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Happyphper\Dify\Client;
-use Happyphper\Dify\Exception\DifyException;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
 use Happyphper\Dify\Model\Dataset;
 use Happyphper\Dify\Model\Document;
 use Happyphper\Dify\Model\Segment;
+use Happyphper\Dify\Model\DatasetListParams;
 
 // 创建配置文件（不包含在版本控制中）
 if (!file_exists(__DIR__ . '/config.php')) {
@@ -19,17 +20,18 @@ if (!file_exists(__DIR__ . '/config.php')) {
 $config = require __DIR__ . '/config.php';
 
 // 初始化客户端
-$client = new Client($config['api_key'], $config['base_url']);
+$client = new DifyClient($config['api_key'], $config['base_url']);
 
 try {
     // 获取知识库列表
     echo "获取知识库列表：\n";
-    $result = $client->datasets()->list();
-    $datasets = $result['data'];
+    $listParams = new DatasetListParams();
+    $listParams->setPage(1);
+    $datasets = $client->datasets()->list($listParams);
     echo "找到 " . count($datasets) . " 个知识库\n";
     
     // 显示知识库信息
-    if ($datasets->isNotEmpty()) {
+    if (count($datasets) > 0) {
         foreach ($datasets as $index => $dataset) {
             echo sprintf(
                 "[%d] ID: %s, 名称: %s, 文档数: %d\n", 
@@ -42,26 +44,16 @@ try {
     }
 
     // 如果有知识库，使用第一个知识库
-    if ($datasets->isNotEmpty()) {
-        $dataset = $datasets->first();
+    if (count($datasets) > 0) {
+        $dataset = $datasets[0];
         $datasetId = $dataset->getId();
         echo "\n使用知识库 ID: " . $datasetId . ", 名称: " . $dataset->getName() . "\n";
 
         // 创建一个简单的文档
         echo "\n通过文本创建文档：\n";
-        $document = $client->documents()->createByText(
-            $datasetId,
-            '这是一个通过 Happyphper Dify PHP 客户端创建的测试文档。它用于演示 API 的基本功能。',
-            [
-                'name' => '测试文档.txt',
-                'text_splitter' => [
-                    'type' => 'chunk',
-                    'chunk_size' => 1000,
-                    'chunk_overlap' => 200
-                ],
-                'indexing_technique' => 'high_quality'
-            ]
-        );
+        $docParams = new \Happyphper\Dify\Model\DocumentCreateParams($datasetId, '测试文档');
+        $docParams->setContent('这是一个通过 Happyphper Dify PHP 客户端创建的测试文档。它用于演示 API 的基本功能。');
+        $document = $client->documents()->createFromText($docParams);
         
         echo sprintf(
             "文档创建成功，ID: %s, 名称: %s, 状态: %s\n", 
@@ -151,14 +143,15 @@ try {
     } else {
         // 如果没有知识库，创建一个
         echo "\n创建知识库：\n";
-        $newDataset = $client->datasets()->create('测试知识库', '通过 Happyphper Dify PHP 客户端创建的测试知识库');
+        $createParams = new \Happyphper\Dify\Model\DatasetCreateParams('测试知识库', '通过 Happyphper Dify PHP 客户端创建的测试知识库');
+        $newDataset = $client->datasets()->create($createParams);
         echo sprintf(
             "知识库创建成功，ID: %s, 名称: %s\n", 
             $newDataset->getId(), 
             $newDataset->getName()
         );
     }
-} catch (DifyException $e) {
+} catch (ApiException $e) {
     echo "错误发生：\n";
     echo "消息: " . $e->getMessage() . "\n";
     echo "状态码: " . $e->getStatusCode() . "\n";

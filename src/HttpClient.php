@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Happyphper\Dify;
 
 use GuzzleHttp\Client;
@@ -8,7 +10,13 @@ use GuzzleHttp\HandlerStack;
 use Hyperf\Guzzle\CoroutineHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
-use Happyphper\Dify\Exception\DifyException;
+use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\Exceptions\ValidationException;
+use Happyphper\Dify\Exceptions\AuthenticationException;
+use Happyphper\Dify\Exceptions\AuthorizationException;
+use Happyphper\Dify\Exceptions\NotFoundException;
+use Happyphper\Dify\Exceptions\RateLimitException;
+use Happyphper\Dify\Exceptions\ServerException;
 
 /**
  * Dify HTTP 客户端
@@ -20,21 +28,21 @@ class HttpClient
      *
      * @var Client
      */
-    private $client;
+    private Client $client;
 
     /**
      * 配置
      *
      * @var Config
      */
-    private $config;
+    private Config $config;
 
     /**
      * 日志记录器
      *
      * @var LoggerInterface|null
      */
-    private $logger;
+    private ?LoggerInterface $logger = null;
 
     /**
      * 构造函数
@@ -46,23 +54,38 @@ class HttpClient
         $this->config = $config;
         $this->logger = $config->getLogger();
 
+        if ($this->config->isDebug() && $this->logger) {
+            $this->logger->info('初始化 Dify HTTP 客户端');
+        }
+
         // 创建处理器栈
         $stack = HandlerStack::create();
-        
+
         // 在协程环境中使用CoroutineHandler
         if (class_exists('\Swoole\Coroutine') && \Swoole\Coroutine::getCid() > 0) {
+            if ($this->config->isDebug() && $this->logger) {
+                $this->logger->info('使用 Swoole 协程处理器');
+            }
             $stack = HandlerStack::create(new CoroutineHandler());
         }
 
         // 确保base_uri不包含v1前缀
         $baseUrl = $config->getBaseUrl();
         $baseUrl = rtrim($baseUrl, '/');
-        if (substr($baseUrl, -3) === '/v1') {
+        if (str_ends_with($baseUrl, '/v1')) {
             $baseUrl = substr($baseUrl, 0, -3);
-        } else if (strpos($baseUrl, '/v1/') !== false) {
+        } else if (str_contains($baseUrl, '/v1/')) {
             $baseUrl = str_replace('/v1/', '/', $baseUrl);
         }
         $baseUrl = rtrim($baseUrl, '/') . '/';
+
+        if ($this->config->isDebug() && $this->logger) {
+            $this->logger->info('配置 HTTP 客户端', [
+                'base_url' => $baseUrl,
+                'timeout' => 10,
+                'connect_timeout' => 5
+            ]);
+        }
 
         $this->client = new Client([
             'base_uri' => $baseUrl,
@@ -72,6 +95,9 @@ class HttpClient
                 'Accept' => 'application/json',
             ],
             'handler' => $stack,
+            'timeout' => 10,           // 请求超时时间（秒）
+            'connect_timeout' => 5,    // 连接超时时间（秒）
+            'debug' => $config->isDebug(),
         ]);
     }
 
@@ -81,7 +107,7 @@ class HttpClient
      * @param string $uri
      * @param array $query
      * @return array
-     * @throws DifyException
+     * @throws ApiException
      */
     public function get(string $uri, array $query = []): array
     {
@@ -94,7 +120,7 @@ class HttpClient
      * @param string $uri
      * @param array $data
      * @return array
-     * @throws DifyException
+     * @throws ApiException
      */
     public function post(string $uri, array $data = []): array
     {
@@ -107,7 +133,7 @@ class HttpClient
      * @param string $uri
      * @param array $multipart
      * @return array
-     * @throws DifyException
+     * @throws ApiException
      */
     public function upload(string $uri, array $multipart): array
     {
@@ -119,7 +145,7 @@ class HttpClient
                 'Accept' => '*/*'
             ]
         ];
-        
+
         if ($this->config->isDebug() && $this->logger) {
             $this->logger->info('Dify API 上传请求', [
                 'uri' => $uri,
@@ -136,7 +162,7 @@ class HttpClient
                 }, $multipart)
             ]);
         }
-        
+
         return $this->request('POST', $uri, $options);
     }
 
@@ -145,7 +171,7 @@ class HttpClient
      *
      * @param string $uri
      * @return array
-     * @throws DifyException
+     * @throws ApiException
      */
     public function delete(string $uri): array
     {
@@ -158,11 +184,24 @@ class HttpClient
      * @param string $uri
      * @param array $data
      * @return array
-     * @throws DifyException
+     * @throws ApiException
      */
     public function put(string $uri, array $data = []): array
     {
         return $this->request('PUT', $uri, ['json' => $data]);
+    }
+
+    /**
+     * 发送 PATCH 请求
+     *
+     * @param string $uri
+     * @param array $data
+     * @return array
+     * @throws ApiException
+     */
+    public function patch(string $uri, array $data = []): array
+    {
+        return $this->request('PATCH', $uri, ['json' => $data]);
     }
 
     /**
@@ -172,39 +211,42 @@ class HttpClient
      * @param string $uri
      * @param array $options
      * @return array
-     * @throws DifyException
+     * @throws ApiException
      */
     private function request(string $method, string $uri, array $options = []): array
     {
+        // 确保 URI 以斜杠开头，并添加 /v1 前缀
+        $uri = '/v1/' . ltrim($uri, '/');
+
+        if ($this->config->isDebug() && $this->logger) {
+            $this->logger->info('准备发送 API 请求', [
+                'method' => $method,
+                'uri' => $uri,
+                'base_url' => $this->config->getBaseUrl(),
+                'options' => $this->sanitizeOptions($options)
+            ]);
+        }
+
         try {
-            // 确保URI始终添加v1前缀
-            if (strpos($uri, 'v1/') !== 0 && strpos($uri, '/v1/') !== 0) {
-                $uri = 'v1/' . ltrim($uri, '/');
-            }
-            
-            // 记录请求日志
-            if ($this->config->isDebug() && $this->logger) {
-                $this->logger->info('Dify API 请求', [
-                    'method' => $method,
-                    'uri' => $uri,
-                    'options' => $this->sanitizeOptions($options),
-                ]);
-            }
+            echo "\n[DEBUG] 正在发送请求: {$method} {$uri}\n";
 
             $response = $this->client->request($method, $uri, $options);
+
+            echo "\n[DEBUG] 请求已发送，正在处理响应\n";
+
             return $this->handleResponse($response, $method, $uri, $options);
         } catch (GuzzleException $e) {
-            // 记录错误日志
             if ($this->config->isDebug() && $this->logger) {
-                $this->logger->error('Dify API 请求错误', [
+                $this->logger->error('Dify API 请求失败', [
                     'method' => $method,
                     'uri' => $uri,
                     'options' => $this->sanitizeOptions($options),
                     'error' => $e->getMessage(),
+                    'error_class' => get_class($e),
+                    'error_trace' => $e->getTraceAsString()
                 ]);
             }
-
-            throw new DifyException('请求失败: ' . $e->getMessage(), $e->getCode(), null, null, $e);
+            throw new ServerException('请求失败: ' . $e->getMessage() . ' (' . get_class($e) . ')', (string) $e->getCode());
         }
     }
 
@@ -216,19 +258,18 @@ class HttpClient
      * @param string $uri
      * @param array $options
      * @return array
-     * @throws DifyException
+     * @throws ApiException
      */
     private function handleResponse(ResponseInterface $response, string $method, string $uri, array $options): array
     {
         $statusCode = $response->getStatusCode();
         $contents = $response->getBody()->getContents();
-        
+
         // 尝试解析JSON响应
         $data = [];
         if (!empty($contents)) {
             $data = json_decode($contents, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                // JSON解析错误
                 if ($this->config->isDebug() && $this->logger) {
                     $this->logger->error('Dify API 响应JSON解析错误', [
                         'method' => $method,
@@ -238,10 +279,10 @@ class HttpClient
                         'jsonError' => json_last_error_msg()
                     ]);
                 }
-                $data = ['message' => '响应格式错误: ' . json_last_error_msg(), 'raw_response' => $contents];
+                throw new ServerException('响应格式错误: ' . json_last_error_msg());
             }
         }
-        
+
         // 记录响应日志
         if ($this->config->isDebug() && $this->logger) {
             $this->logger->info('Dify API 响应', [
@@ -253,7 +294,7 @@ class HttpClient
             ]);
         }
 
-        if ($statusCode < 200 || $statusCode >= 300) {
+        if ($statusCode >= 400) {
             // 记录错误日志
             if ($this->config->isDebug() && $this->logger) {
                 $this->logger->error('Dify API 响应错误', [
@@ -265,19 +306,30 @@ class HttpClient
                     'parsedData' => $data
                 ]);
             }
-            
-            // 确保data是数组
-            if (!is_array($data)) {
-                $data = ['message' => '未知错误', 'raw_response' => $contents];
+
+            $errorMessage = $data['message'] ?? '未知错误';
+            $errorCode = $data['code'] ?? null;
+
+            switch ($statusCode) {
+                case 400:
+                    throw new ValidationException($errorMessage, $errorCode);
+                case 401:
+                    throw new AuthenticationException($errorMessage, $errorCode);
+                case 403:
+                    throw new AuthorizationException($errorMessage, $errorCode);
+                case 404:
+                    throw new NotFoundException($errorMessage, $errorCode);
+                case 429:
+                    throw new RateLimitException($errorMessage, $errorCode);
+                default:
+                    throw new ServerException($errorMessage, $errorCode);
             }
-            
-            throw DifyException::fromResponse($data, $statusCode);
         }
 
         // 确保返回数组
-        return is_array($data) ? $data : ['data' => $data, 'raw_response' => $contents];
+        return is_array($data) ? $data : ['data' => $data];
     }
-    
+
     /**
      * 清理请求选项，移除敏感信息
      *
@@ -287,7 +339,7 @@ class HttpClient
     private function sanitizeOptions(array $options): array
     {
         $sanitized = $options;
-        
+
         // 移除敏感信息
         if (isset($sanitized['headers'])) {
             foreach ($sanitized['headers'] as $key => $value) {
@@ -296,7 +348,7 @@ class HttpClient
                 }
             }
         }
-        
+
         return $sanitized;
     }
-} 
+}

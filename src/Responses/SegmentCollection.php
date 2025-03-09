@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Happyphper\Dify\Model;
+namespace Happyphper\Dify\Responses;
+
+use Happyphper\Dify\Support\Collection;
+use Happyphper\Dify\Support\Paginator;
 
 class SegmentCollection extends Collection
 {
@@ -10,43 +13,50 @@ class SegmentCollection extends Collection
      * 构造函数
      *
      * @param array $items
+     * @param array|Paginator|null $paginator
      */
-    public function __construct(array $items = [])
+    public function __construct(array $items = [], array|Paginator|null $paginator = null)
     {
-        parent::__construct(array_map(function ($item) {
-            return $item instanceof Segment ? $item : new Segment($item);
-        }, $items));
+        $items = array_map(function ($item) {
+            if ($item instanceof Segment) {
+                return $item;
+            }
+
+            return new Segment($item);
+        }, $items);
+
+        parent::__construct($items, $paginator);
     }
 
     /**
      * 添加分段
      *
-     * @param Segment|array $segment
-     * @return $this
+     * @param array|Segment $segment
+     * @return void
      */
-    public function add($segment): self
+    public function add(array|Segment $segment): void
     {
         if (!$segment instanceof Segment) {
             $segment = new Segment($segment);
         }
 
-        return parent::add($segment);
+        parent::add($segment);
     }
 
     /**
      * 设置分段
      *
      * @param int $index
-     * @param Segment|array $segment
-     * @return $this
+     * @param array|Segment $segment
+     * @return void
      */
-    public function set(int $index, $segment): self
+    public function set(int $index, array|Segment $segment): void
     {
         if (!$segment instanceof Segment) {
             $segment = new Segment($segment);
         }
 
-        return parent::set($index, $segment);
+        parent::set($index, $segment);
     }
 
     /**

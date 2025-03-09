@@ -45,6 +45,8 @@ DIFY_INDEXING_TECHNIQUE=high_quality
 <?php
 
 use Happyphper\Dify\Client;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
 
 class YourController
 {
@@ -108,6 +110,8 @@ class YourController
 use Happyphper\Dify\Client;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
 
 // Create logger
 $logger = new Logger('dify');
@@ -251,17 +255,20 @@ $segment = $client->segments()->update(
 
 ## Error Handling
 
-All API calls may throw a `DifyException`. You can catch it to handle errors:
+All API calls may throw an `ApiException`. You can catch it to handle errors:
 
 ```php
-use Happyphper\Dify\Exception\DifyException;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
 
 try {
-    $datasets = $client->datasets()->list();
-} catch (DifyException $e) {
-    echo 'Error: ' . $e->getMessage() . "\n";
-    echo 'Status Code: ' . $e->getStatusCode() . "\n";
-    echo 'Error Code: ' . $e->getErrorCode() . "\n";
+    $client = new DifyClient('your-api-key');
+    $datasets = $client->dataset()->list();
+} catch (ApiException $e) {
+    echo "Error occurred:\n";
+    echo "Message: " . $e->getMessage() . "\n";
+    echo "Status Code: " . $e->getStatusCode() . "\n";
+    echo "Error Code: " . $e->getErrorCode() . "\n";
 }
 ```
 

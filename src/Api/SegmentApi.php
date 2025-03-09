@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Happyphper\Dify\Api;
 
-use Happyphper\Dify\Exception\DifyException;
+use Happyphper\Dify\Exceptions\ApiException;
 use Happyphper\Dify\HttpClient;
-use Happyphper\Dify\Model\Segment;
-use Happyphper\Dify\Model\SegmentCollection;
+use Happyphper\Dify\Responses\Segment;
+use Happyphper\Dify\Responses\SegmentCollection;
+use Happyphper\Dify\Support\Paginator;
 
 /**
  * 文档分段 API 类
@@ -19,89 +20,95 @@ class SegmentApi
      *
      * @var HttpClient
      */
-    private $httpClient;
+    private HttpClient $client;
 
     /**
-     * 初始化文档分段 API
+     * 构造函数
      *
-     * @param HttpClient $httpClient
+     * @param HttpClient $client
      */
-    public function __construct(HttpClient $httpClient)
+    public function __construct(HttpClient $client)
     {
-        $this->httpClient = $httpClient;
+        $this->client = $client;
     }
 
     /**
      * 创建分段
      *
-     * @param string $datasetId 数据集ID
-     * @param string $documentId 文档ID
-     * @param array $segments 分段数据
+     * @param string $datasetId
+     * @param string $documentId
+     * @param array $segments
      * @return SegmentCollection
+     * @throws ApiException
      */
     public function create(string $datasetId, string $documentId, array $segments): SegmentCollection
     {
-        $response = $this->httpClient->post("datasets/{$datasetId}/documents/{$documentId}/segments", [
+        $response = $this->client->post("datasets/{$datasetId}/documents/{$documentId}/segments", [
             'segments' => $segments
         ]);
         
-        return new SegmentCollection($response['segments'] ?? []);
+        return new SegmentCollection($response['data'] ?? []);
     }
 
     /**
      * 获取分段列表
      *
-     * @param string $datasetId 数据集ID
-     * @param string $documentId 文档ID
-     * @param int $page 页码
-     * @param int $limit 每页数量
-     * @return array 包含分段集合和分页信息
+     * @param string $datasetId
+     * @param string $documentId
+     * @param int $page
+     * @param int $limit
+     * @return SegmentCollection
+     * @throws ApiException
      */
-    public function list(string $datasetId, string $documentId, int $page = 1, int $limit = 20): array
+    public function list(string $datasetId, string $documentId, int $page = 1, int $limit = 20): SegmentCollection
     {
         $query = [
             'page' => $page,
             'limit' => $limit
         ];
 
-        $response = $this->httpClient->get("datasets/{$datasetId}/documents/{$documentId}/segments", $query);
+        $response = $this->client->get("datasets/{$datasetId}/documents/{$documentId}/segments", $query);
         
-        $segments = new SegmentCollection($response['data'] ?? []);
+        $paginator = new Paginator(
+            $response['page'] ?? $page,
+            $response['limit'] ?? $limit,
+            $response['total'] ?? 0,
+            $response['has_more'] ?? false
+        );
         
-        return [
-            'data' => $segments,
-            'has_more' => $response['has_more'] ?? false,
-            'limit' => $response['limit'] ?? $limit,
-            'total' => $response['total'] ?? count($segments),
-            'page' => $response['page'] ?? $page,
-        ];
+        return new SegmentCollection($response['data'] ?? [], $paginator);
     }
 
     /**
      * 更新分段
      *
-     * @param string $datasetId 数据集ID
-     * @param string $documentId 文档ID
-     * @param string $segmentId 分段ID
-     * @param array $data 更新数据
+     * @param string $datasetId
+     * @param string $documentId
+     * @param string $segmentId
+     * @param array $data
      * @return Segment
+     * @throws ApiException
      */
     public function update(string $datasetId, string $documentId, string $segmentId, array $data): Segment
     {
-        $response = $this->httpClient->put("datasets/{$datasetId}/documents/{$documentId}/segments/{$segmentId}", $data);
-        return new Segment($response);
+        $response = $this->client->post("datasets/{$datasetId}/documents/{$documentId}/segments/{$segmentId}", [
+            'segment' => $data
+        ]);
+        
+        return new Segment($response['data'][0] ?? []);
     }
 
     /**
      * 删除分段
      *
-     * @param string $datasetId 数据集ID
-     * @param string $documentId 文档ID
-     * @param string $segmentId 分段ID
-     * @return array
+     * @param string $datasetId
+     * @param string $documentId
+     * @param string $segmentId
+     * @return void
+     * @throws ApiException
      */
-    public function delete(string $datasetId, string $documentId, string $segmentId): array
+    public function delete(string $datasetId, string $documentId, string $segmentId): void
     {
-        return $this->httpClient->delete("datasets/{$datasetId}/documents/{$documentId}/segments/{$segmentId}");
+        $this->client->delete("datasets/{$datasetId}/documents/{$documentId}/segments/{$segmentId}");
     }
 } 

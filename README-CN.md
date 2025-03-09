@@ -45,6 +45,8 @@ DIFY_INDEXING_TECHNIQUE=high_quality
 <?php
 
 use Happyphper\Dify\Client;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
 
 class YourController
 {
@@ -108,6 +110,8 @@ class YourController
 use Happyphper\Dify\Client;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
 
 // 创建日志记录器
 $logger = new Logger('dify');
@@ -251,17 +255,20 @@ $segment = $client->segments()->update(
 
 ## 错误处理
 
-所有 API 调用可能抛出 `DifyException` 异常，您可以捕获它来处理错误：
+所有 API 调用可能抛出 `ApiException` 异常，您可以捕获它来处理错误：
 
 ```php
-use Happyphper\Dify\Exception\DifyException;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
 
 try {
-    $datasets = $client->datasets()->list();
-} catch (DifyException $e) {
-    echo '错误：' . $e->getMessage() . "\n";
-    echo '状态码：' . $e->getStatusCode() . "\n";
-    echo '错误代码：' . $e->getErrorCode() . "\n";
+    $client = new DifyClient('your-api-key');
+    $datasets = $client->dataset()->list();
+} catch (ApiException $e) {
+    echo "错误发生：\n";
+    echo "消息: " . $e->getMessage() . "\n";
+    echo "状态码: " . $e->getStatusCode() . "\n";
+    echo "错误代码: " . $e->getErrorCode() . "\n";
 }
 ```
 

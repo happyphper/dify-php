@@ -2,8 +2,10 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Happyphper\Dify\Client;
-use Happyphper\Dify\Exception\DifyException;
+use Happyphper\Dify\DifyClient;
+use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\Model\DocumentCreateParams;
 
 // 创建配置文件（不包含在版本控制中）
 if (!file_exists(__DIR__ . '/config.php')) {
@@ -16,7 +18,7 @@ if (!file_exists(__DIR__ . '/config.php')) {
 $config = require __DIR__ . '/config.php';
 
 // 初始化客户端
-$client = new Client($config['api_key'], $config['base_url']);
+$client = new DifyClient($config['api_key'], $config['base_url']);
 
 // 创建一个示例文件
 $exampleFilePath = __DIR__ . '/example.txt';
@@ -25,33 +27,25 @@ file_put_contents($exampleFilePath, "这是一个示例文件，用于测试 Hap
 try {
     // 获取知识库列表
     echo "获取知识库列表：\n";
-    $result = $client->datasets()->list();
-    $datasets = $result['data'];
+    $datasets = $client->datasets()->list(new \Happyphper\Dify\Model\DatasetListParams());
     
-    if ($datasets->isEmpty()) {
+    if (count($datasets) === 0) {
         echo "没有找到知识库，正在创建新知识库...\n";
-        $dataset = $client->datasets()->create('文件上传测试', '用于测试文件上传功能的知识库');
+        $datasetParams = new \Happyphper\Dify\Model\DatasetCreateParams('文件上传测试', '用于测试文件上传功能的知识库');
+        $dataset = $client->datasets()->create($datasetParams);
     } else {
-        $dataset = $datasets->first();
+        $dataset = $datasets[0];
     }
     
     echo sprintf("使用知识库: %s (ID: %s)\n", $dataset->getName(), $dataset->getId());
     
     // 上传文件
     echo "\n上传文件：\n";
-    $document = $client->documents()->createByFile(
-        $dataset->getId(),
-        $exampleFilePath,
-        [
-            'name' => 'example.txt',
-            'text_splitter' => [
-                'type' => 'chunk',
-                'chunk_size' => 500,
-                'chunk_overlap' => 100
-            ],
-            'indexing_technique' => 'high_quality'
-        ]
-    );
+    $docParams = new DocumentCreateParams($dataset->getId(), 'example.txt');
+    $docParams->setFilepath($exampleFilePath);
+    $docParams->addMetadata('indexing_technique', 'high_quality');
+    
+    $document = $client->documents()->createFromFile($docParams);
     
     echo sprintf(
         "文件上传成功，文档ID: %s, 名称: %s, 状态: %s\n", 
@@ -119,7 +113,7 @@ try {
     unlink($exampleFilePath);
     echo "\n示例文件已删除\n";
     
-} catch (DifyException $e) {
+} catch (ApiException $e) {
     echo "错误发生：\n";
     echo "消息: " . $e->getMessage() . "\n";
     echo "状态码: " . $e->getStatusCode() . "\n";
@@ -129,4 +123,6 @@ try {
     if (file_exists($exampleFilePath)) {
         unlink($exampleFilePath);
     }
+} catch (ApiException $e) {
+    // ... existing code ...
 } 
