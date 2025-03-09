@@ -32,13 +32,16 @@ class DocumentCreateByFileRequest
         $multipart[] = [
             'name' => 'data',
             'contents' => json_encode($this->data->toArray()),
+            'headers' => [
+                'Content-Type' => 'text/plain'
+            ]
         ];
 
-        // 处理文件上传，确保文件是流
+        // 处理文件上传
         $multipart[] = [
             'name' => 'file',
-            'contents' => $this->file->content,
-            'filename' => $this->file->filename,
+            'contents' => fopen($this->file->filepath, 'r'),
+            'filename' => $this->file->filename
         ];
 
         // 只有当 retrievalModel 存在时，才加入请求

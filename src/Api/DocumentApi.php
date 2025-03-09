@@ -11,6 +11,7 @@ use Happyphper\Dify\Requests\DocumentCreateByFile\DocumentCreateByFileRequest;
 use Happyphper\Dify\Requests\DocumentCreateByTextRequest;
 use Happyphper\Dify\Responses\DocumentCreateResponse;
 use Happyphper\Dify\Responses\DocumentListResponse;
+use Happyphper\Dify\Responses\DocumentStatusResponse;
 use Happyphper\Dify\Responses\Upload;
 use Throwable;
 
@@ -97,7 +98,7 @@ class DocumentApi
      */
     public function updateByFile(string $datasetId, string $documentId, DocumentCreateByFileRequest $params): DocumentCreateResponse
     {
-        $response = $this->client->post(
+        $response = $this->client->upload(
             "datasets/$datasetId/documents/$documentId/update-by-file",
             $params->toArray(),
         );
@@ -147,14 +148,13 @@ class DocumentApi
      *
      * @param string $datasetId
      * @param string $batch
-     * @return void
+     * @return DocumentStatusResponse
+     * @throws ApiException
      */
-    public function getIndexingStatus(string $datasetId, string $batch): void
+    public function getIndexingStatus(string $datasetId, string $batch): DocumentStatusResponse
     {
-        // TODO
-        return;
-//        $response = $this->client->get("datasets/{$datasetId}/documents/{$batch}/indexing-status");
-//        return new Document($response['data'][0] ?? $response);
+        $response = $this->client->get("datasets/{$datasetId}/documents/{$batch}/indexing-status");
+        return new DocumentStatusResponse($response);
     }
 
     /**

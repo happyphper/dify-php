@@ -28,9 +28,24 @@ class TestCase extends BaseTestCase
     protected Client $client;
 
     /**
+     * 测试数据集
+     *
+     * @var Dataset|null
+     */
+    protected ?Dataset $dataset = null;
+
+    /**
+     * 测试文档
+     *
+     * @var DocumentCreateResponse|null
+     */
+    protected ?DocumentCreateResponse $docCreateRes = null;
+
+    /**
      * 测试前的准备工作
      *
      * @return void
+     * @throws ApiException
      */
     protected function setUp(): void
     {
@@ -94,6 +109,33 @@ class TestCase extends BaseTestCase
             true, // 启用调试模式
             $logger
         );
+
+        // 初始化测试数据集
+        $this->dataset = $this->createDataset();
+
+        // 初始化测试文档
+        $this->docCreateRes = $this->createDocumentByTex($this->dataset->id);
+    }
+
+    /**
+     * 测试后的清理工作
+     *
+     * @return void
+     * @throws ApiException
+     */
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+
+        // 清理测试文档
+        if ($this->docCreateRes !== null) {
+            $this->deleteDocument($this->dataset->id, $this->docCreateRes->document->id);
+        }
+
+        // 清理测试数据集
+        if ($this->dataset !== null) {
+            $this->deleteDataset($this->dataset->id);
+        }
     }
 
     /**
@@ -122,7 +164,6 @@ class TestCase extends BaseTestCase
     protected function createDocumentByTex(string $datasetId): DocumentCreateResponse
     {
         $request = new DocumentCreateByTextRequest('Test Dataset ' . microtime(), '测试文本');
-
         return $this->client->documents()->createFromText($datasetId, $request);
     }
 

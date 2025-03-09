@@ -12,13 +12,15 @@ class DocumentFile
 {
     public StreamInterface $content;
     public string $filename;
+    public string $filepath;
 
     public function __construct(string $filepath, string $filename)
     {
-        $f = fopen($filepath, 'r');
-
-        $this->content = Utils::streamFor($f);
+        $this->filepath = $filepath;
         $this->filename = $filename;
+        
+        $f = fopen($filepath, 'r');
+        $this->content = Utils::streamFor($f);
     }
 
     public function toArray(): array
@@ -26,6 +28,7 @@ class DocumentFile
         return [
             'content' => $this->content,
             'filename' => $this->filename,
+            'filepath' => $this->filepath,
         ];
     }
 }

@@ -17,7 +17,14 @@ class DocumentCreateByTextRequest
     public array $processRule = [
         'mode' => 'automatic',
     ];
-    public array $retrievalModel = [];
+    public array $retrievalModel = [
+        'search_method' => 'semantic_search',
+        'reranking_enable' => false,
+        'top_k' => 2,
+        'score_threshold_enabled' => false,
+        'score_threshold' => 0.5,
+        'max_tokens' => 1000,
+    ];
     public ?string $embeddingModel = null;
     public ?string $embeddingModelProvider = null;
 

@@ -246,6 +246,12 @@ class HttpClient
                     'error_trace' => $e->getTraceAsString()
                 ]);
             }
+            
+            // 处理 404 错误
+            if ($e->getCode() == 404) {
+                throw new NotFoundException('资源未找到: ' . $e->getMessage(), (string) $e->getCode());
+            }
+            
             throw new ServerException('请求失败: ' . $e->getMessage() . ' (' . get_class($e) . ')', (string) $e->getCode());
         }
     }
