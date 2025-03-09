@@ -10,7 +10,7 @@
     }
   ],
   "require": {
-    "php": ">=7.4",
+    "php": ">=8.1",
     "psr/log": "^1.0|^2.0|^3.0",
     "hyperf/guzzle": "^3.1",
     "ext-fileinfo": "*"
@@ -19,7 +19,8 @@
     "phpunit/phpunit": "^9.0",
     "hyperf/framework": "^3.0",
     "hyperf/config": "^3.0",
-    "hyperf/logger": "^3.0"
+    "hyperf/logger": "^3.0",
+    "phpunit/php-code-coverage": "^9.0"
   },
   "suggest": {
     "hyperf/framework": "^3.0",
@@ -35,6 +36,10 @@
     "psr-4": {
       "Happyphper\\Dify\\Tests\\": "tests/"
     }
+  },
+  "scripts": {
+    "test": "phpunit tests/Cases/",
+    "test-coverage": "phpunit tests/Cases/ --coverage-html coverage"
   },
   "extra": {
     "hyperf": {

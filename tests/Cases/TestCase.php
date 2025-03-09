@@ -136,6 +136,20 @@ class TestCase extends BaseTestCase
         if ($this->dataset !== null) {
             $this->deleteDataset($this->dataset->id);
         }
+
+        // 执行清理脚本，清理所有测试数据
+        $cleanScript = __DIR__ . '/../../clean_datasets.php';
+        if (file_exists($cleanScript)) {
+            echo "\n正在执行数据清理脚本...\n";
+            $output = [];
+            $returnVar = 0;
+            exec("php {$cleanScript}", $output, $returnVar);
+            
+            if ($returnVar !== 0) {
+                echo "清理脚本执行失败，返回码: {$returnVar}\n";
+                echo "输出信息:\n" . implode("\n", $output) . "\n";
+            }
+        }
     }
 
     /**

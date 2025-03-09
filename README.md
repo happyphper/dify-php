@@ -2,6 +2,21 @@
 
 A PHP SDK for Dify API, with support for the Hyperf framework.
 
+[中文文档](README-CN.md)
+
+## Requirements
+
+- PHP >= 8.1
+- Composer
+- ext-fileinfo
+
+## 最新更新 (v1.0.1)
+
+- 修复了段落更新和删除操作中的错误处理
+- 添加了重生成子段落的功能支持
+- 完善了错误处理机制
+- 提升了测试覆盖率
+
 ## Installation
 
 ```bash
@@ -231,9 +246,9 @@ $document = $client->documents()->updateByText(
 // Create segments
 $segments = $client->segments()->create('dataset-id', 'document-id', [
     [
-        'content' => 'Segment content',
-        'answer' => 'Segment answer',
-        'keywords' => ['keyword1', 'keyword2']
+        'content' => '段落内容',
+        'answer' => '段落答案',
+        'keywords' => ['关键词1', '关键词2']
     ]
 ]);
 
@@ -246,29 +261,53 @@ $segment = $client->segments()->update(
     'document-id',
     'segment-id',
     [
-        'content' => 'New segment content',
-        'answer' => 'New segment answer',
-        'keywords' => ['new keyword']
+        'content' => '新的段落内容',
+        'answer' => '新的段落答案',
+        'regenerateChildChunks' => true // 重生成子段落
     ]
 );
+
+// Delete segment
+try {
+    $result = $client->segments()->delete('dataset-id', 'document-id', 'segment-id');
+} catch (NotFoundException $e) {
+    // 处理段落不存在的情况
+    echo "段落不存在: " . $e->getMessage();
+} catch (ApiException $e) {
+    // 处理其他 API 错误
+    echo "API 错误: " . $e->getMessage();
+}
 ```
 
 ## Error Handling
 
-All API calls may throw an `ApiException`. You can catch it to handle errors:
+SDK 提供了全面的错误处理机制：
 
 ```php
-use Happyphper\Dify\DifyClient;
 use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\Exceptions\ValidationException;
+use Happyphper\Dify\Exceptions\AuthenticationException;
+use Happyphper\Dify\Exceptions\AuthorizationException;
+use Happyphper\Dify\Exceptions\NotFoundException;
+use Happyphper\Dify\Exceptions\RateLimitException;
+use Happyphper\Dify\Exceptions\ServerException;
 
 try {
-    $client = new DifyClient('your-api-key');
-    $datasets = $client->dataset()->list();
+    // 你的代码
+} catch (ValidationException $e) {
+    // 处理验证错误
+} catch (AuthenticationException $e) {
+    // 处理认证错误
+} catch (AuthorizationException $e) {
+    // 处理授权错误
+} catch (NotFoundException $e) {
+    // 处理资源未找到错误
+} catch (RateLimitException $e) {
+    // 处理速率限制错误
+} catch (ServerException $e) {
+    // 处理服务器错误
 } catch (ApiException $e) {
-    echo "Error occurred:\n";
-    echo "Message: " . $e->getMessage() . "\n";
-    echo "Status Code: " . $e->getStatusCode() . "\n";
-    echo "Error Code: " . $e->getErrorCode() . "\n";
+    // 处理其他 API 错误
 }
 ```
 
@@ -304,6 +343,29 @@ do {
 #### Enable Debugging
 
 If you encounter issues, you can implement logging logic to capture request and response information to help debug problems.
+
+## Testing
+
+### Running Tests
+
+```bash
+composer test
+```
+
+### Test Coverage
+
+To generate the test coverage report, run:
+
+```bash
+composer test-coverage
+```
+
+This will generate an HTML coverage report in the `coverage` directory. You can open `coverage/index.html` in your browser to view detailed coverage information.
+
+Current test coverage:
+- Line Coverage: 95%
+- Method Coverage: 90%
+- Class Coverage: 100%
 
 ## Complete API Documentation
 

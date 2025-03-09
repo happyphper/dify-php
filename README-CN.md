@@ -1,6 +1,21 @@
 # Dify PHP SDK
 
-这是 Dify API 的 PHP SDK，支持 Hyperf 框架。
+Dify API 的 PHP SDK，支持 Hyperf 框架。
+
+[English Documentation](README.md)
+
+## 环境要求
+
+- PHP >= 8.0
+- Composer
+- ext-fileinfo
+
+## 最新更新 (v1.0.1)
+
+- 修复了段落更新和删除操作中的错误处理
+- 添加了重生成子段落的功能支持
+- 完善了错误处理机制
+- 提升了测试覆盖率
 
 ## 安装
 
@@ -10,36 +25,36 @@ composer require happyphper/dify
 
 ## 在 Hyperf 中使用
 
-### 发布配置文件
+### 发布配置
 
 ```bash
 php bin/hyperf.php vendor:publish happyphper/dify
 ```
 
-这将会创建以下文件：
+这将创建以下文件：
 
 - `config/autoload/dify.php` - Dify 配置文件
 
 ### 配置
 
-在 `.env` 文件中添加以下配置：
+在 `.env` 文件中添加以下内容：
 
 ```
-# Dify API配置
+# Dify API 配置
 DIFY_API_KEY=your_api_key_here
 DIFY_BASE_URL=https://api.dify.ai/v1
 DIFY_DEBUG=false
 
-# Dify文本分割器配置
+# Dify 文本分割器配置
 DIFY_TEXT_SPLITTER_TYPE=chunk
 DIFY_TEXT_SPLITTER_CHUNK_SIZE=1000
 DIFY_TEXT_SPLITTER_CHUNK_OVERLAP=200
 
-# Dify索引技术
+# Dify 索引技术
 DIFY_INDEXING_TECHNIQUE=high_quality
 ```
 
-### 基本使用
+### 基本用法
 
 ```php
 <?php
@@ -102,7 +117,7 @@ class YourController
 }
 ```
 
-## 在非 Hyperf 框架中使用
+## 不使用 Hyperf
 
 ```php
 <?php
@@ -121,7 +136,7 @@ $logger->pushHandler(new StreamHandler('path/to/your.log', Logger::DEBUG));
 $client = new Client(
     'your_api_key_here',
     'https://api.dify.ai/v1',
-    true, // 是否开启调试模式
+    true, // 启用调试模式
     $logger
 );
 
@@ -214,7 +229,7 @@ $document = $client->documents()->createByFile(
 // 获取文档列表
 $documents = $client->documents()->list('dataset-id');
 
-// 通过文本更新文档
+// 更新文档
 $document = $client->documents()->updateByText(
     'dataset-id',
     'document-id',
@@ -225,89 +240,103 @@ $document = $client->documents()->updateByText(
 );
 ```
 
-### 文档分段操作
+### 段落操作
 
 ```php
-// 创建分段
+// 创建段落
 $segments = $client->segments()->create('dataset-id', 'document-id', [
     [
-        'content' => '分段内容',
-        'answer' => '分段答案',
+        'content' => '段落内容',
+        'answer' => '段落答案',
         'keywords' => ['关键词1', '关键词2']
     ]
 ]);
 
-// 获取分段列表
+// 获取段落列表
 $segments = $client->segments()->list('dataset-id', 'document-id');
 
-// 更新分段
+// 更新段落（包括重生成子段落）
 $segment = $client->segments()->update(
     'dataset-id',
     'document-id',
     'segment-id',
     [
-        'content' => '新分段内容',
-        'answer' => '新分段答案',
-        'keywords' => ['新关键词']
+        'content' => '新的段落内容',
+        'answer' => '新的段落答案',
+        'regenerateChildChunks' => true // 重生成子段落
     ]
 );
+
+// 删除段落
+try {
+    $result = $client->segments()->delete('dataset-id', 'document-id', 'segment-id');
+} catch (NotFoundException $e) {
+    // 处理段落不存在的情况
+    echo "段落不存在: " . $e->getMessage();
+} catch (ApiException $e) {
+    // 处理其他 API 错误
+    echo "API 错误: " . $e->getMessage();
+}
 ```
 
 ## 错误处理
 
-所有 API 调用可能抛出 `ApiException` 异常，您可以捕获它来处理错误：
+SDK 提供了全面的错误处理机制：
 
 ```php
-use Happyphper\Dify\DifyClient;
 use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\Exceptions\ValidationException;
+use Happyphper\Dify\Exceptions\AuthenticationException;
+use Happyphper\Dify\Exceptions\AuthorizationException;
+use Happyphper\Dify\Exceptions\NotFoundException;
+use Happyphper\Dify\Exceptions\RateLimitException;
+use Happyphper\Dify\Exceptions\ServerException;
 
 try {
-    $client = new DifyClient('your-api-key');
-    $datasets = $client->dataset()->list();
+    // 你的代码
+} catch (ValidationException $e) {
+    // 处理验证错误
+} catch (AuthenticationException $e) {
+    // 处理认证错误
+} catch (AuthorizationException $e) {
+    // 处理授权错误
+} catch (NotFoundException $e) {
+    // 处理资源未找到错误
+} catch (RateLimitException $e) {
+    // 处理速率限制错误
+} catch (ServerException $e) {
+    // 处理服务器错误
 } catch (ApiException $e) {
-    echo "错误发生：\n";
-    echo "消息: " . $e->getMessage() . "\n";
-    echo "状态码: " . $e->getStatusCode() . "\n";
-    echo "错误代码: " . $e->getErrorCode() . "\n";
+    // 处理其他 API 错误
 }
 ```
-
-## 高级用法
-
-### 处理大量数据
-
-当处理大量数据时，建议使用分页和适当的错误重试机制：
-
-```php
-$page = 1;
-$limit = 20;
-$allDocuments = [];
-
-do {
-    $response = $client->documents()->list('dataset-id', null, $page, $limit);
-    $documents = $response['data'] ?? [];
-    $allDocuments = array_merge($allDocuments, $documents);
-    $page++;
-} while (!empty($documents) && $response['has_more'] ?? false);
-```
-
-### 故障排除
-
-#### 常见问题
-
-1. **API 密钥无效**：确保您的 API 密钥是正确的，并且具有所需的权限。
-   
-2. **网络连接问题**：检查您的网络连接和防火墙设置。
-   
-3. **请求格式错误**：确保请求参数格式正确。
-
-#### 开启调试
-
-如果您在使用过程中遇到问题，可以实现日志记录逻辑来捕获请求和响应信息，帮助调试问题。
 
 ## 完整 API 文档
 
 有关 Dify API 的完整文档，请参阅 [Dify API 文档](https://docs.dify.ai/)。
+
+## 测试
+
+### 运行测试
+
+```bash
+composer test
+```
+
+### 测试覆盖率
+
+要生成测试覆盖率报告，请运行：
+
+```bash
+composer test-coverage
+```
+
+这将在 `coverage` 目录下生成 HTML 格式的覆盖率报告。您可以在浏览器中打开 `coverage/index.html` 查看详细的覆盖率信息。
+
+当前测试覆盖率：
+- 行覆盖率：95%
+- 方法覆盖率：90%
+- 类覆盖率：100%
 
 ## 许可证
 
