@@ -12,6 +12,7 @@ Dify API 的 PHP SDK，支持 Hyperf 框架。
 
 ## 最新更新 (v1.2.0)
 
+- 添加控制台的相关非公开接口
 - 添加了令牌自动刷新功能，无缝处理认证令牌过期的情况
 - 优化了 `ConsoleClient` 的错误处理机制
 - 添加了 `clearRefreshToken` 方法，用于只清除刷新令牌
@@ -55,59 +56,108 @@ php bin/hyperf.php vendor:publish happyphper/dify
 
 ```
 # Dify API 配置
-DIFY_DATASET_KEY=your_api_key_here
-DIFY_BASE_URL=https://api.dify.ai/v1
-DIFY_DEBUG=false
+DIFY_DATASET_KEY=your_api_key_here        # 用于数据集操作的 Dify API 密钥
+DIFY_BASE_URL=https://api.dify.ai/v1      # Dify API 的基础 URL
+DIFY_DEBUG=false                          # 启用/禁用调试模式
+
+# 控制台 API 配置（用于需要登录的操作）
+DIFY_CONSOLE_ENABLE=false                 # 是否启用控制台接口
+DIFY_CONSOLE_EMAIL=admin@ai.com           # 您的 Dify 账户邮箱
+DIFY_CONSOLE_PASSWORD=!Qq123123           # 您的 Dify 账户密码
+
+# 工作流 API 配置（用于未来版本）
+DIFY_WORKFLOW_API_KEY=your_workflow_key_here  # 用于工作流操作的 Dify API 密钥
 
 # Dify 文本分割器配置
-DIFY_TEXT_SPLITTER_TYPE=chunk
-DIFY_TEXT_SPLITTER_CHUNK_SIZE=1000
-DIFY_TEXT_SPLITTER_CHUNK_OVERLAP=200
+DIFY_TEXT_SPLITTER_TYPE=chunk             # 文本分割方法：'chunk'（块）或 'paragraph'（段落）
+DIFY_TEXT_SPLITTER_CHUNK_SIZE=1000        # 每个文本块的最大大小
+DIFY_TEXT_SPLITTER_CHUNK_OVERLAP=200      # 相邻块之间的重叠部分
 
 # Dify 索引技术
-DIFY_INDEXING_TECHNIQUE=high_quality
+DIFY_INDEXING_TECHNIQUE=high_quality      # 索引技术：'high_quality'（高质量）或 'economy'（经济型）
 
 # Dify 缓存配置
-DIFY_CACHE_DRIVER=file
-DIFY_CACHE_PREFIX=dify_
-DIFY_CACHE_TTL=86400
-DIFY_CACHE_FILE_DIRECTORY=/path/to/cache
+DIFY_CACHE_DRIVER=file                    # 缓存驱动：'file'（文件）或 'redis'
+DIFY_CACHE_PREFIX=dify_                   # 缓存键前缀
+DIFY_CACHE_TTL=86400                      # 缓存过期时间（秒）（24小时）
+DIFY_CACHE_FILE_DIRECTORY=/path/to/cache  # 文件缓存目录
+
+# Redis 缓存配置（使用 redis 驱动时）
+DIFY_CACHE_REDIS_HOST=127.0.0.1           # Redis 主机
+DIFY_CACHE_REDIS_PORT=6379                # Redis 端口
+DIFY_CACHE_REDIS_PASSWORD=null            # Redis 密码（null 表示无密码）
+DIFY_CACHE_REDIS_DATABASE=0               # Redis 数据库索引
+DIFY_CACHE_REDIS_TIMEOUT=0.0              # Redis 连接超时
 ```
 
-### 缓存配置
+### 完整配置文件结构
 
-Dify PHP SDK 支持多种缓存驱动，用于存储认证令牌等信息。目前支持以下缓存驱动：
-
-- `file`: 文件缓存，将缓存数据存储在文件中
-- `redis`: Redis 缓存，将缓存数据存储在 Redis 中
-
-您可以在配置文件中指定缓存驱动和相关配置：
+以下是配置文件的完整结构，包含所有可用选项：
 
 ```php
-// config/autoload/dify.php
+<?php
+
+declare(strict_types=1);
+
+use function Hyperf\Support\env;
+
 return [
-    // ... 其他配置 ...
-    
+    // Open API 基础 URL
+    'base_url' => env('DIFY_BASE_URL', 'https://api.dify.ai/v1'),
+
+    // 数据集 API 密钥
+    'dataset_key' => env('DIFY_DATASET_KEY', ''),
+
+    // 工作流 API 密钥（用于未来版本）
+    'workflow_keys' => [
+        // 默认密钥
+        'default' => env('DIFY_WORKFLOW_API_KEY')
+
+        // 如果需要，可以添加更多具有自定义名称的密钥
+    ],
+
+    // 启用调试模式
+    'debug' => (bool)env('DIFY_DEBUG', false),
+
+    // 文本分割器配置
+    'text_splitter' => [
+        'type' => env('DIFY_TEXT_SPLITTER_TYPE', 'chunk'),
+        'chunk_size' => (int)env('DIFY_TEXT_SPLITTER_CHUNK_SIZE', 1000),
+        'chunk_overlap' => (int)env('DIFY_TEXT_SPLITTER_CHUNK_OVERLAP', 200),
+    ],
+
+    // 索引技术
+    'indexing_technique' => env('DIFY_INDEXING_TECHNIQUE', 'high_quality'),
+
+    /**
+     * 控制台凭据，用于非公开 API 端点
+     */
+    'console' => [
+        'enable' => env('DIFY_CONSOLE_ENABLE', false),
+        'email' => env('DIFY_CONSOLE_EMAIL', 'admin@ai.com'),
+        'password' => env('DIFY_CONSOLE_PASSWORD', '!Qq123123'),
+    ],
+
     /**
      * 缓存配置
      */
     'cache' => [
-        // 缓存驱动: file, redis
+        // 缓存驱动：file, redis
         'driver' => env('DIFY_CACHE_DRIVER', 'file'),
-        
+
         // 缓存前缀
         'prefix' => env('DIFY_CACHE_PREFIX', 'dify_'),
-        
+
         // 默认缓存过期时间（秒）
-        'ttl' => (int)env('DIFY_CACHE_TTL', 86400), // 默认24小时
-        
+        'ttl' => (int)env('DIFY_CACHE_TTL', 86400), // 默认 24 小时
+
         // 文件缓存配置
         'file' => [
-            // 缓存目录，默认为系统临时目录下的dify_cache
+            // 缓存目录，默认为系统临时目录中的 dify_cache
             'directory' => env('DIFY_CACHE_FILE_DIRECTORY', sys_get_temp_dir() . '/dify_cache'),
         ],
-        
-        // Redis缓存配置
+
+        // Redis 缓存配置
         'redis' => [
             'host' => env('DIFY_CACHE_REDIS_HOST', '127.0.0.1'),
             'port' => (int)env('DIFY_CACHE_REDIS_PORT', 6379),
@@ -117,6 +167,41 @@ return [
         ],
     ],
 ];
+```
+
+### 缓存配置
+
+Dify PHP SDK 支持以下缓存配置选项：
+
+```php
+/**
+ * 缓存配置
+ */
+'cache' => [
+    // 缓存驱动：file, redis
+    'driver' => env('DIFY_CACHE_DRIVER', 'file'),
+
+    // 缓存前缀
+    'prefix' => env('DIFY_CACHE_PREFIX', 'dify_'),
+
+    // 默认缓存过期时间（秒）
+    'ttl' => (int)env('DIFY_CACHE_TTL', 86400), // 默认 24 小时
+
+    // 文件缓存配置
+    'file' => [
+        // 缓存目录，默认为系统临时目录中的 dify_cache
+        'directory' => env('DIFY_CACHE_FILE_DIRECTORY', sys_get_temp_dir() . '/dify_cache'),
+    ],
+
+    // Redis 缓存配置
+    'redis' => [
+        'host' => env('DIFY_CACHE_REDIS_HOST', '127.0.0.1'),
+        'port' => (int)env('DIFY_CACHE_REDIS_PORT', 6379),
+        'password' => env('DIFY_CACHE_REDIS_PASSWORD', null),
+        'database' => (int)env('DIFY_CACHE_REDIS_DATABASE', 0),
+        'timeout' => (float)env('DIFY_CACHE_REDIS_TIMEOUT', 0.0),
+    ],
+],
 ```
 
 ### 基本用法
@@ -231,6 +316,8 @@ $client->datasets()->delete($dataset['id']);
 ```
 
 ## 工作流编排对话型应用 API
+
+> **注意**：工作流编排对话型应用 API 计划在未来版本中推出。以下文档概述了计划中的功能。敬请期待更新！
 
 ### 基本用法
 
@@ -350,6 +437,8 @@ $parameters = $client->workflows()->getParameters();
 ## 控制台 API（需要登录）
 
 某些操作需要通过 Dify 控制台 API 执行，这些 API 需要先登录获取令牌。SDK 提供了专门的 `ConsoleClient` 类来处理这些操作。
+
+> **注意**：控制台 API 默认是禁用的。您需要在 `.env` 文件中设置 `DIFY_CONSOLE_ENABLE=true` 或在配置文件中设置 `console.enable = true` 来启用它。如果您在控制台 API 禁用时尝试使用 `ConsoleClient`，将会抛出 `ConsoleDisabledException` 异常。
 
 ### 基本用法
 

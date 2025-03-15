@@ -55,23 +55,38 @@ Add the following to your `.env` file:
 
 ```
 # Dify API Configuration
-DIFY_DATASET_KEY=your_api_key_here
-DIFY_BASE_URL=https://api.dify.ai/v1
-DIFY_DEBUG=false
+DIFY_DATASET_KEY=your_api_key_here        # Your Dify API key for dataset operations
+DIFY_BASE_URL=https://api.dify.ai/v1      # Base URL for Dify API
+DIFY_DEBUG=false                          # Enable/disable debug mode
+
+# Console API Configuration (for operations requiring login)
+DIFY_CONSOLE_ENABLE=false                 # Enable/disable console API
+DIFY_CONSOLE_EMAIL=admin@ai.com           # Your Dify account email
+DIFY_CONSOLE_PASSWORD=!Qq123123           # Your Dify account password
+
+# Workflow API Configuration (for future releases)
+DIFY_WORKFLOW_API_KEY=your_workflow_key_here  # Your Dify API key for workflow operations
 
 # Dify Text Splitter Configuration
-DIFY_TEXT_SPLITTER_TYPE=chunk
-DIFY_TEXT_SPLITTER_CHUNK_SIZE=1000
-DIFY_TEXT_SPLITTER_CHUNK_OVERLAP=200
+DIFY_TEXT_SPLITTER_TYPE=chunk             # Text splitting method: 'chunk' or 'paragraph'
+DIFY_TEXT_SPLITTER_CHUNK_SIZE=1000        # Maximum size of each text chunk
+DIFY_TEXT_SPLITTER_CHUNK_OVERLAP=200      # Overlap between adjacent chunks
 
 # Dify Indexing Technique
-DIFY_INDEXING_TECHNIQUE=high_quality
+DIFY_INDEXING_TECHNIQUE=high_quality      # Indexing technique: 'high_quality' or 'economy'
 
 # Dify Cache Configuration
-DIFY_CACHE_DRIVER=file
-DIFY_CACHE_PREFIX=dify_
-DIFY_CACHE_TTL=86400
-DIFY_CACHE_FILE_DIRECTORY=/path/to/cache
+DIFY_CACHE_DRIVER=file                    # Cache driver: 'file' or 'redis'
+DIFY_CACHE_PREFIX=dify_                   # Prefix for cache keys
+DIFY_CACHE_TTL=86400                      # Cache TTL in seconds (24 hours)
+DIFY_CACHE_FILE_DIRECTORY=/path/to/cache  # Directory for file cache
+
+# Redis Cache Configuration (when using redis driver)
+DIFY_CACHE_REDIS_HOST=127.0.0.1           # Redis host
+DIFY_CACHE_REDIS_PORT=6379                # Redis port
+DIFY_CACHE_REDIS_PASSWORD=null            # Redis password (null for none)
+DIFY_CACHE_REDIS_DATABASE=0               # Redis database index
+DIFY_CACHE_REDIS_TIMEOUT=0.0              # Redis connection timeout
 ```
 
 ### Cache Configuration
@@ -83,30 +98,73 @@ Dify PHP SDK supports multiple cache drivers for storing authentication tokens a
 
 You can specify the cache driver and related configuration in the configuration file:
 
+### Complete Configuration File Structure
+
+Below is the complete structure of the configuration file with all available options:
+
 ```php
-// config/autoload/dify.php
+<?php
+
+declare(strict_types=1);
+
+use function Hyperf\Support\env;
+
 return [
-    // ... other configurations ...
-    
+    // Base URL for Open API
+    'base_url' => env('DIFY_BASE_URL', 'https://api.dify.ai/v1'),
+
+    // Dataset API key
+    'dataset_key' => env('DIFY_DATASET_KEY', ''),
+
+    // Workflow API keys (for future releases)
+    'workflow_keys' => [
+        // Default key
+        'default' => env('DIFY_WORKFLOW_API_KEY')
+
+        // You can add more keys with custom names if needed
+    ],
+
+    // Enable debug mode
+    'debug' => (bool)env('DIFY_DEBUG', false),
+
+    // Text splitter configuration
+    'text_splitter' => [
+        'type' => env('DIFY_TEXT_SPLITTER_TYPE', 'chunk'),
+        'chunk_size' => (int)env('DIFY_TEXT_SPLITTER_CHUNK_SIZE', 1000),
+        'chunk_overlap' => (int)env('DIFY_TEXT_SPLITTER_CHUNK_OVERLAP', 200),
+    ],
+
+    // Indexing technique
+    'indexing_technique' => env('DIFY_INDEXING_TECHNIQUE', 'high_quality'),
+
+    /**
+     * Console credentials for non-public API endpoints
+     */
+    'console' => [
+        'enable' => env('DIFY_CONSOLE_ENABLE', false),
+        'email' => env('DIFY_CONSOLE_EMAIL', 'admin@ai.com'),
+        'password' => env('DIFY_CONSOLE_PASSWORD', '!Qq123123'),
+    ],
+
     /**
      * Cache configuration
      */
     'cache' => [
         // Cache driver: file, redis
         'driver' => env('DIFY_CACHE_DRIVER', 'file'),
-        
+
         // Cache prefix
         'prefix' => env('DIFY_CACHE_PREFIX', 'dify_'),
-        
+
         // Default cache TTL (seconds)
         'ttl' => (int)env('DIFY_CACHE_TTL', 86400), // Default 24 hours
-        
+
         // File cache configuration
         'file' => [
             // Cache directory, defaults to dify_cache in the system temp directory
             'directory' => env('DIFY_CACHE_FILE_DIRECTORY', sys_get_temp_dir() . '/dify_cache'),
         ],
-        
+
         // Redis cache configuration
         'redis' => [
             'host' => env('DIFY_CACHE_REDIS_HOST', '127.0.0.1'),
@@ -232,6 +290,8 @@ $client->datasets()->delete($dataset['id']);
 
 ## Workflow Orchestration Chat API
 
+> **Note**: The Workflow Orchestration Chat API is planned for future releases. The following documentation outlines the planned functionality. Stay tuned for updates!
+
 ### Basic Usage
 
 ```php
@@ -350,6 +410,8 @@ For more examples, please refer to the `examples/workflow_example.php` file.
 ## Console API (Requires Login)
 
 Some operations need to be performed through the Dify Console API, which requires login to obtain a token. The SDK provides a dedicated `ConsoleClient` class to handle these operations.
+
+> **Note**: The Console API is disabled by default. You need to set `DIFY_CONSOLE_ENABLE=true` in your `.env` file or `console.enable = true` in your configuration file to enable it. If you try to use the `ConsoleClient` when the Console API is disabled, a `ConsoleDisabledException` will be thrown.
 
 ### Basic Usage
 

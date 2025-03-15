@@ -13,6 +13,7 @@ use Happyphper\Dify\Console\Api\DocumentApi;
 use Happyphper\Dify\Exceptions\ApiException;
 use Happyphper\Dify\Exceptions\AuthenticationException;
 use Happyphper\Dify\Exceptions\AuthorizationException;
+use Happyphper\Dify\Exceptions\ConsoleDisabledException;
 use Happyphper\Dify\Exceptions\NotFoundException;
 use Happyphper\Dify\Exceptions\RateLimitException;
 use Happyphper\Dify\Exceptions\ServerException;
@@ -86,6 +87,7 @@ class ConsoleClient
      * @param LoggerInterface|null $logger 日志记录器
      * @param CacheInterface|null $cache 缓存实例
      * @param array $config 配置
+     * @throws ConsoleDisabledException 当控制台接口未启用时抛出
      */
     public function __construct(
         protected string $baseUrl,
@@ -96,6 +98,11 @@ class ConsoleClient
         ?CacheInterface $cache = null,
         protected array $config = []
     ) {
+        // 检查控制台接口是否启用
+        if (isset($this->config['console']['enable']) && $this->config['console']['enable'] === false) {
+            throw new ConsoleDisabledException();
+        }
+        
         $this->cookieJar = new CookieJar();
         $this->tokenStorage = new TokenStorage($cache, $this->config);
         $this->token = $this->tokenStorage->getAccessToken();

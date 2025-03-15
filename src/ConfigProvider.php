@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Happyphper\Dify;
 
+use Happyphper\Dify\Console\ConsoleClient;
 use Happyphper\Dify\Public\PublicClient;
 use Happyphper\Dify\Support\Cache\CacheFactory;
 use Happyphper\Dify\Support\Cache\CacheInterface;
@@ -36,10 +37,24 @@ class ConfigProvider
                     $logger = $container->get(\Hyperf\Logger\LoggerFactory::class)->get('dify');
 
                     $apiKey = $config->get('dify.api_key', '');
-                    $baseUrl = $config->get('dify.base_url', 'https://api.dify.ai/v1');
+                    $baseUrl = $config->get('dify.base_url', 'https://api.dify.ai');
                     $debug = $config->get('dify.debug', false);
 
-                    return new PublicClient($apiKey, $baseUrl, $debug, $logger);
+                    return new PublicClient($baseUrl, $apiKey, $debug, $logger);
+                },
+                // 注册 Diyf 控制台客户端
+                ConsoleClient::class => function (ContainerInterface $container) {
+                  $config = $container->get(\Hyperf\Contract\ConfigInterface::class);
+                  $logger = $container->get(\Hyperf\Logger\LoggerFactory::class)->get('dify');
+
+                  $email = $config->get('dify.console.email', '');
+                  $password = $config->get('dify.console.password', '');
+                  $baseUrl = $config->get('dify.base_url', 'https://api.dify.ai');
+                  $debug = $config->get('dify.debug', false);
+                  $cache = $container->get(CacheInterface::class);
+                  $difyConfig = $config->get('dify', []);
+
+                  return new ConsoleClient($baseUrl, $email, $password, $debug, $logger, $cache, $difyConfig);
                 },
             ],
             'annotations' => [

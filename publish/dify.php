@@ -6,7 +6,7 @@ use function Hyperf\Support\env;
 
 return [
     // 开放 API 基础URL
-    'base_url' => env('DIFY_BASE_URL', 'https://api.dify.ai/v1'),
+    'base_url' => env('DIFY_BASE_URL', 'https://api.dify.ai'),
 
     // 知识库密钥
     'dataset_key' => env('DIFY_DATASET_KEY', ''),
@@ -37,8 +37,11 @@ return [
      * 账号密码用于调用控制台的非公开接口
      */
     'console' => [
+        // 是否启用控制台接口
         'enable' => env('DIFY_CONSOLE_ENABLE', false),
+        // 控制台邮箱
         'email' => env('DIFY_CONSOLE_EMAIL', 'admin@ai.com'),
+        // 控制台密码
         'password' => env('DIFY_CONSOLE_PASSWORD', '!Qq123123'),
     ],
 
