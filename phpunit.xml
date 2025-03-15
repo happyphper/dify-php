@@ -15,7 +15,23 @@
     </filter>
     <php>
         <!-- API 配置 -->
-        <env name="DIFY_API_KEY" value="dataset-ufldW3iEBZma9WfB0NF3C2HR"/>
-        <env name="DIFY_API_BASE_URL" value="http://host.docker.internal:5001/v1"/>
+        <env name="DIFY_DATASET_KEY" value="dataset-ufldW3iEBZma9WfB0NF3C2HR"/>
+        <env name="DIFY_BASE_URL" value="http://host.docker.internal:5001"/>
+        <env name="DIFY_EMAIL" value="admin@ai.com"/>
+        <env name="DIFY_PASSWORD" value="!Qq123123"/>
+
+        <!-- 缓存配置 -->
+        <env name="DIFY_CACHE_DRIVER" value="redis"/>
+        <env name="DIFY_CACHE_PREFIX" value="dify_test_"/>
+        <env name="DIFY_CACHE_TTL" value="86400"/>
+
+        <!-- 文件缓存配置 -->
+        <env name="DIFY_CACHE_FILE_DIRECTORY" value="/tmp/dify_test_cache"/>
+
+        <!-- Redis缓存配置 -->
+        <env name="DIFY_CACHE_REDIS_HOST" value="redis"/>
+        <env name="DIFY_CACHE_REDIS_PORT" value="6379"/>
+        <env name="DIFY_CACHE_REDIS_PASSWORD" value="dify123456"/>
+        <env name="DIFY_CACHE_REDIS_DATABASE" value="0"/>
     </php>
-</phpunit> 
+</phpunit>

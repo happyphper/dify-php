@@ -145,8 +145,8 @@ docker exec -it dify-php-shell php -v
 
 测试使用以下环境变量进行配置，这些变量已在 `phpunit.xml` 文件中定义：
 
-- `DIFY_API_KEY`: API 密钥，默认为 `dataset-ufldW3iEBZma9WfB0NF3C2HR`
-- `DIFY_API_BASE_URL`: API 基础 URL，默认为 `http://host.docker.internal:5001/v1`
+- `DIFY_DATASET_KEY`: API 密钥，默认为 `dataset-ufldW3iEBZma9WfB0NF3C2HR`
+- `DIFY_BASE_URL`: API 基础 URL，默认为 `http://host.docker.internal:5001/v1`
 
 如果你需要修改这些配置，可以通过以下方式：
 
@@ -154,8 +154,8 @@ docker exec -it dify-php-shell php -v
 
 ```xml
 <php>
-    <env name="DIFY_API_KEY" value="你的API密钥"/>
-    <env name="DIFY_API_BASE_URL" value="你的API基础URL"/>
+    <env name="DIFY_DATASET_KEY" value="你的API密钥"/>
+    <env name="DIFY_BASE_URL" value="你的API基础URL"/>
 </php>
 ```
 
@@ -166,8 +166,8 @@ docker run --rm -it \
   -v $(pwd):/app \
   -w /app \
   --add-host=host.docker.internal:host-gateway \
-  -e DIFY_API_KEY=你的API密钥 \
-  -e DIFY_API_BASE_URL=你的API基础URL \
+  -e DIFY_DATASET_KEY=你的API密钥 \
+  -e DIFY_BASE_URL=你的API基础URL \
   --name dify-php-test \
   dify-php-sdk \
   phpunit tests/Cases/Dataset/DatasetCreateTest.php

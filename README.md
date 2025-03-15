@@ -10,12 +10,26 @@ A PHP SDK for Dify API, with support for the Hyperf framework.
 - Composer
 - ext-fileinfo
 
-## 最新更新 (v1.0.1)
+## Latest Updates (v1.2.0)
 
-- 修复了段落更新和删除操作中的错误处理
-- 添加了重生成子段落的功能支持
-- 完善了错误处理机制
-- 提升了测试覆盖率
+- Added token auto-refresh functionality for seamless handling of authentication token expiration
+- Optimized error handling mechanism in `ConsoleClient`
+- Added `clearRefreshToken` method to clear only the refresh token
+- Fixed error handling in paragraph update and delete operations
+- Added support for regenerating sub-paragraphs
+- Improved error handling mechanism
+- Enhanced test coverage
+
+## Token Auto-Refresh Feature
+
+Dify PHP SDK now supports token auto-refresh functionality, allowing your application to seamlessly handle authentication token expiration:
+
+- **Automatic Token Refresh**: When an access token expires, the SDK automatically attempts to obtain a new access token using the refresh token
+- **Automatic Request Retry**: After successful token refresh, the original request is automatically retried without manual intervention
+- **Automatic Re-login**: If the refresh token has also expired, the SDK attempts to re-login using the configured credentials
+- **Intelligent Token Management**: Only clears the refresh token upon refresh failure, preserving valid access tokens
+
+These features allow your application to focus on business logic without worrying about the complexity of token management.
 
 ## Installation
 
@@ -41,7 +55,7 @@ Add the following to your `.env` file:
 
 ```
 # Dify API Configuration
-DIFY_API_KEY=your_api_key_here
+DIFY_DATASET_KEY=your_api_key_here
 DIFY_BASE_URL=https://api.dify.ai/v1
 DIFY_DEBUG=false
 
@@ -52,6 +66,57 @@ DIFY_TEXT_SPLITTER_CHUNK_OVERLAP=200
 
 # Dify Indexing Technique
 DIFY_INDEXING_TECHNIQUE=high_quality
+
+# Dify Cache Configuration
+DIFY_CACHE_DRIVER=file
+DIFY_CACHE_PREFIX=dify_
+DIFY_CACHE_TTL=86400
+DIFY_CACHE_FILE_DIRECTORY=/path/to/cache
+```
+
+### Cache Configuration
+
+Dify PHP SDK supports multiple cache drivers for storing authentication tokens and other information. Currently, the following cache drivers are supported:
+
+- `file`: File cache, stores cache data in files
+- `redis`: Redis cache, stores cache data in Redis
+
+You can specify the cache driver and related configuration in the configuration file:
+
+```php
+// config/autoload/dify.php
+return [
+    // ... other configurations ...
+    
+    /**
+     * Cache configuration
+     */
+    'cache' => [
+        // Cache driver: file, redis
+        'driver' => env('DIFY_CACHE_DRIVER', 'file'),
+        
+        // Cache prefix
+        'prefix' => env('DIFY_CACHE_PREFIX', 'dify_'),
+        
+        // Default cache TTL (seconds)
+        'ttl' => (int)env('DIFY_CACHE_TTL', 86400), // Default 24 hours
+        
+        // File cache configuration
+        'file' => [
+            // Cache directory, defaults to dify_cache in the system temp directory
+            'directory' => env('DIFY_CACHE_FILE_DIRECTORY', sys_get_temp_dir() . '/dify_cache'),
+        ],
+        
+        // Redis cache configuration
+        'redis' => [
+            'host' => env('DIFY_CACHE_REDIS_HOST', '127.0.0.1'),
+            'port' => (int)env('DIFY_CACHE_REDIS_PORT', 6379),
+            'password' => env('DIFY_CACHE_REDIS_PASSWORD', null),
+            'database' => (int)env('DIFY_CACHE_REDIS_DATABASE', 0),
+            'timeout' => (float)env('DIFY_CACHE_REDIS_TIMEOUT', 0.0),
+        ],
+    ],
+];
 ```
 
 ### Basic Usage
@@ -59,18 +124,16 @@ DIFY_INDEXING_TECHNIQUE=high_quality
 ```php
 <?php
 
-use Happyphper\Dify\Client;
-use Happyphper\Dify\DifyClient;
-use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\DifyClient;use Happyphper\Dify\Public\PublicClient;
 
 class YourController
 {
     /**
-     * @var Client
+     * @var PublicClient
      */
     private $dify;
 
-    public function __construct(Client $dify)
+    public function __construct(PublicClient $dify)
     {
         $this->dify = $dify;
     }
@@ -122,18 +185,14 @@ class YourController
 ```php
 <?php
 
-use Happyphper\Dify\Client;
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
-use Happyphper\Dify\DifyClient;
-use Happyphper\Dify\Exceptions\ApiException;
+use Happyphper\Dify\DifyClient;use Happyphper\Dify\Public\PublicClient;use Monolog\Handler\StreamHandler;use Monolog\Logger;
 
 // Create logger
 $logger = new Logger('dify');
 $logger->pushHandler(new StreamHandler('path/to/your.log', Logger::DEBUG));
 
 // Create Dify client
-$client = new Client(
+$client = new PublicClient(
     'your_api_key_here',
     'https://api.dify.ai/v1',
     true, // Enable debug mode
@@ -169,6 +228,208 @@ $client->documents()->delete($dataset['id'], $document['id']);
 
 // Delete dataset
 $client->datasets()->delete($dataset['id']);
+```
+
+## Workflow Orchestration Chat API
+
+### Basic Usage
+
+```php
+// Create workflow chat request (blocking mode)
+$inputs = [
+    'query' => 'Tell me about Dify platform'
+];
+$response = $client->workflows()->run($inputs, 'user-123');
+
+// Get response content
+echo "Workflow Run ID: " . $response->getWorkflowRunId() . "\n";
+echo "Task ID: " . $response->getTaskId() . "\n";
+echo "Status: " . $response->getStatus() . "\n";
+echo "Outputs: " . json_encode($response->getOutputs()) . "\n";
+
+// Create workflow chat request (streaming mode)
+$streamResponse = $client->workflows()->runStream($inputs, 'user-123');
+
+// Set event callbacks
+$streamResponse->onWorkflowStarted(function ($data) {
+    echo "Workflow started: " . $data['workflow_run_id'] . "\n";
+});
+
+$streamResponse->onNodeStarted(function ($data) {
+    echo "Node started: " . $data['data']['node_id'] . "\n";
+});
+
+$streamResponse->onNodeFinished(function ($data) {
+    echo "Node finished: " . $data['data']['node_id'] . "\n";
+});
+
+$streamResponse->onWorkflowFinished(function ($data) {
+    echo "Workflow finished: " . $data['data']['status'] . "\n";
+});
+
+$streamResponse->onMessage(function ($data) {
+    echo "Message received: " . ($data['answer'] ?? '') . "\n";
+});
+
+// Start processing the stream
+$streamResponse->stream();
+
+// Stop workflow execution
+$client->workflows()->stop($taskId);
+```
+
+### Conversation Management
+
+```php
+// Get conversation list
+$conversations = $client->workflows()->getConversations('user-123');
+
+// Get conversation message history
+$messages = $client->workflows()->getMessages($conversationId, 'user-123');
+
+// Delete conversation
+$client->workflows()->deleteConversation($conversationId, 'user-123');
+
+// Rename conversation
+$client->workflows()->renameConversation($conversationId, 'New Conversation Name', 'user-123');
+```
+
+### Message Feedback
+
+```php
+// Like a message
+$client->workflows()->messageFeedback($messageId, 'like', 'user-123');
+
+// Dislike a message
+$client->workflows()->messageFeedback($messageId, 'dislike', 'user-123');
+
+// Revoke feedback
+$client->workflows()->revokeFeedback($messageId, 'user-123');
+```
+
+### File Upload and Multimodal Support
+
+```php
+// Upload a file
+$fileInfo = $client->workflows()->uploadFile('/path/to/file.pdf', 'user-123', 'document');
+
+// Send a message with a file
+$inputs = [
+    'query' => 'Analyze this file',
+    'file' => [
+        'transfer_method' => 'local_file',
+        'upload_file_id' => $fileInfo['id'],
+        'type' => 'document'
+    ]
+];
+$response = $client->workflows()->run($inputs, 'user-123');
+```
+
+### Audio Processing
+
+```php
+// Convert audio to text
+$result = $client->workflows()->audioToText('/path/to/audio.mp3', 'user-123');
+
+// Convert text to audio
+$result = $client->workflows()->textToAudio('Convert this text to speech', 'user-123', 'default');
+```
+
+### Application Information
+
+```php
+// Get application basic info
+$appInfo = $client->workflows()->getAppInfo();
+
+// Get application parameters
+$parameters = $client->workflows()->getParameters();
+```
+
+For more examples, please refer to the `examples/workflow_example.php` file.
+
+## Console API (Requires Login)
+
+Some operations need to be performed through the Dify Console API, which requires login to obtain a token. The SDK provides a dedicated `ConsoleClient` class to handle these operations.
+
+### Basic Usage
+
+```php
+use Happyphper\Dify\Console\ConsoleClient;use Happyphper\Dify\Exceptions\ApiException;
+
+// Create console client
+$consoleClient = new ConsoleClient(
+    'http://localhost:8080',  // Dify console URL
+    'your-email@example.com', // Login email
+    'your-password',          // Login password
+    true                      // Enable debug mode
+);
+
+// Disable document
+try {
+    $result = $consoleClient->datasets()->disableDocuments(
+        'dataset-id',
+        'document-id'
+    );
+    
+    if ($result) {
+        echo "Document disabled successfully\n";
+    } else {
+        echo "Failed to disable document\n";
+    }
+} catch (ApiException $e) {
+    echo "Error: " . $e->getMessage() . "\n";
+}
+
+// Enable document
+try {
+    $result = $consoleClient->datasets()->enableDocuments(
+        'dataset-id',
+        'document-id'
+    );
+    
+    if ($result) {
+        echo "Document enabled successfully\n";
+    } else {
+        echo "Failed to enable document\n";
+    }
+} catch (ApiException $e) {
+    echo "Error: " . $e->getMessage() . "\n";
+}
+
+// Batch operations (passing an array)
+$documentIds = ['doc-id-1', 'doc-id-2', 'doc-id-3'];
+$consoleClient->datasets()->disableDocuments('dataset-id', $documentIds);
+```
+
+### Token Auto-Refresh
+
+The `ConsoleClient` now supports automatic token refresh, which handles token expiration seamlessly:
+
+1. When an access token expires (401 error), the SDK will:
+   - Automatically attempt to refresh the token using the refresh token
+   - Retry the original request if refresh is successful
+   - Re-login if the refresh token is expired or not available
+   - Clear tokens and throw an exception if login fails
+
+2. The token refresh process is intelligent:
+   - Only clears the refresh token upon refresh failure
+   - Preserves the access token if it's still valid
+   - Handles all token management internally
+
+This allows your application to focus on business logic without worrying about token management.
+
+```php
+// The ConsoleClient handles token refresh automatically
+// You don't need to write any additional code for token management
+
+// Example of a long-running process where tokens might expire
+$datasets = $consoleClient->datasets()->list();
+
+// Even after token expiration, this will still work without any manual intervention
+sleep(3600); // Simulate passage of time (1 hour)
+$documents = $consoleClient->documents()->list($datasets[0]['id']);
+
+// The SDK handles token refresh behind the scenes
 ```
 
 ## API Reference
@@ -246,9 +507,9 @@ $document = $client->documents()->updateByText(
 // Create segments
 $segments = $client->segments()->create('dataset-id', 'document-id', [
     [
-        'content' => '段落内容',
-        'answer' => '段落答案',
-        'keywords' => ['关键词1', '关键词2']
+        'content' => 'Segment content',
+        'answer' => 'Segment answer',
+        'keywords' => ['keyword1', 'keyword2']
     ]
 ]);
 
@@ -261,9 +522,9 @@ $segment = $client->segments()->update(
     'document-id',
     'segment-id',
     [
-        'content' => '新的段落内容',
-        'answer' => '新的段落答案',
-        'regenerateChildChunks' => true // 重生成子段落
+        'content' => 'New segment content',
+        'answer' => 'New segment answer',
+        'regenerateChildChunks' => true // Regenerate child chunks
     ]
 );
 
@@ -271,17 +532,17 @@ $segment = $client->segments()->update(
 try {
     $result = $client->segments()->delete('dataset-id', 'document-id', 'segment-id');
 } catch (NotFoundException $e) {
-    // 处理段落不存在的情况
-    echo "段落不存在: " . $e->getMessage();
+    // Handle segment not found
+    echo "Segment not found: " . $e->getMessage();
 } catch (ApiException $e) {
-    // 处理其他 API 错误
-    echo "API 错误: " . $e->getMessage();
+    // Handle other API errors
+    echo "API error: " . $e->getMessage();
 }
 ```
 
 ## Error Handling
 
-SDK 提供了全面的错误处理机制：
+The SDK provides comprehensive error handling mechanisms:
 
 ```php
 use Happyphper\Dify\Exceptions\ApiException;
@@ -293,21 +554,22 @@ use Happyphper\Dify\Exceptions\RateLimitException;
 use Happyphper\Dify\Exceptions\ServerException;
 
 try {
-    // 你的代码
+    // Your code
 } catch (ValidationException $e) {
-    // 处理验证错误
+    // Handle validation errors
 } catch (AuthenticationException $e) {
-    // 处理认证错误
+    // Handle authentication errors
 } catch (AuthorizationException $e) {
-    // 处理授权错误
+    // Handle authorization errors
 } catch (NotFoundException $e) {
-    // 处理资源未找到错误
+    // Handle resource not found errors
 } catch (RateLimitException $e) {
-    // 处理速率限制错误
+    // Handle rate limit errors
 } catch (ServerException $e) {
-    // 处理服务器错误
+    // Handle server errors
 } catch (ApiException $e) {
-    // 处理其他 API 错误
+    // Handle other API errors
+    echo "API error: " . $e->getMessage();
 }
 ```
 
