@@ -36,7 +36,7 @@ class ConfigProvider
                     $config = $container->get(\Hyperf\Contract\ConfigInterface::class);
                     $logger = $container->get(\Hyperf\Logger\LoggerFactory::class)->get('dify');
 
-                    $apiKey = $config->get('dify.api_key', '');
+                    $apiKey = $config->get('dify.dataset_key', '');
                     $baseUrl = $config->get('dify.base_url', 'https://api.dify.ai');
                     $debug = $config->get('dify.debug', false);
 
@@ -82,6 +82,7 @@ class ConfigProvider
      */
     private function getBasePath(): string
     {
-        return defined('BASE_PATH') ? BASE_PATH : '';
+        // 使用全局函数 defined 检查全局常量 BASE_PATH
+        return defined('BASE_PATH') ? constant('BASE_PATH') : '';
     }
 }
